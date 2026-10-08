@@ -1,1 +1,10 @@
 /out/
+
+# Local experimental builds and app data (never publish these)
+/build-mobile/
+/wolfssl-build/
+/mobile-test-output/
+/appdata/
+/logs/
+*.core
+/core

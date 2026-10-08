@@ -1,3 +1,25 @@
+# Experimental art_standalone companion for ATL mobile
+
+Unofficial companion fork. Upstream:
+https://gitlab.com/android_translation_layer/art_standalone
+
+This branch exposes libutils Looper polling state for the experimental ATL main
+loop and handles a missing TLS client-certificate alias in WolfSSLContext. Work
+was developed with Codex assistance. The full inherited history and existing
+AOSP/wolfSSL license notices are retained; the repository has multiple licenses.
+
+The sibling ATL checkout's `scripts/mobile/build.sh` builds only the changed
+libutils and WolfSSL Java provider against Alpine's packaged runtime. It puts
+these in a private overlay rather than installing a complete ART runtime.
+Use `sh tests/mobile/run.sh` inside Alpine to test native FD readiness, callback
+removal, wakeup, deadlines and idle state. The ATL smoke APK tests the TLS fix
+without making a network connection. New native test files are Apache-2.0.
+
+Keep this branch and its ATL consumer together: `ATL_Looper_getPollState` is an
+experimental cross-repository ABI. Full upstream build instructions follow.
+
+---
+
 ### dependencies
 
 debian based distros:
