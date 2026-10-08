@@ -672,6 +672,17 @@ void Looper::removeMessages(const sp<MessageHandler>& handler, int what) {
     } // release lock
 }
 
+void Looper::getPollState(int* fd, int64_t* deadlineMicros) {
+    AutoMutex lock(mLock);
+    *fd = mEpollFd.get();
+    *deadlineMicros = mMessageEnvelopes.isEmpty() ? -1 :
+            (mMessageEnvelopes.itemAt(0).uptime + 999) / 1000;
+}
+
+extern "C" void ATL_Looper_getPollState(Looper* looper, int* fd, int64_t* deadlineMicros) {
+    looper->getPollState(fd, deadlineMicros);
+}
+
 bool Looper::isPolling() const {
     return mPolling;
 }

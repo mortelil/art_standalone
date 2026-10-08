@@ -416,6 +416,10 @@ public:
      */
     bool isPolling() const;
 
+    // Standalone event-loop integration. Call on the owning thread after pollOnce(0).
+    // The descriptor can change when the epoll set is rebuilt; never close it.
+    void getPollState(int* fd, int64_t* deadlineMicros);
+
     /**
      * Prepares a looper associated with the calling thread, and returns it.
      * If the thread already has a looper, it is returned.  Otherwise, a new
