@@ -259,6 +259,11 @@ public class WolfSSLContext extends SSLContextSpi {
         String alias = km.chooseClientAlias(keyStrings, null, null);
         authStore.setCertAlias(alias);
 
+        /* A null alias means that no client certificate was selected. */
+        if (alias == null) {
+            return;
+        }
+
         /* client private key */
         PrivateKey privKey = km.getPrivateKey(alias);
 
@@ -666,4 +671,3 @@ public class WolfSSLContext extends SSLContextSpi {
         }
     }
 }
-
