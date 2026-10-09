@@ -15,6 +15,7 @@
  */
 
 #include "thread.h"
+#include "host_signal_stack.h"
 
 #include <signal.h>
 
@@ -36,38 +37,30 @@ static void SigAltStack(stack_t* new_stack, stack_t* old_stack) {
 static /*constexpr*/ int kHostAltSigStackSize =
     32 * KB < MINSIGSTKSZ ? MINSIGSTKSZ : 32 * KB;
 
+// Keep host-only ownership outside Thread's Android-compatible layout.
+static thread_local HostSignalStack owned_signal_stack;
+static thread_local const Thread* signal_stack_owner = nullptr;
+
 void Thread::SetUpAlternateSignalStack() {
-  // Create and set an alternate signal stack.
 #ifdef ART_TARGET_ANDROID
   LOG(FATAL) << "Invalid use of alternate signal stack on Android";
 #endif
+  if (!owned_signal_stack.Install(kHostAltSigStackSize)) {
+    PLOG(FATAL) << "alternate signal stack installation failed";
+  }
+  signal_stack_owner = this;
   stack_t ss;
-  ss.ss_sp = new uint8_t[kHostAltSigStackSize];
-  ss.ss_size = kHostAltSigStackSize;
-  ss.ss_flags = 0;
-  CHECK(ss.ss_sp != nullptr);
-  SigAltStack(&ss, nullptr);
-
-  // Double-check that it worked.
-  ss.ss_sp = nullptr;
   SigAltStack(nullptr, &ss);
   VLOG(threads) << "Alternate signal stack is " << PrettySize(ss.ss_size) << " at " << ss.ss_sp;
 }
 
 void Thread::TearDownAlternateSignalStack() {
-  // Get the pointer so we can free the memory.
-  stack_t ss;
-  SigAltStack(nullptr, &ss);
-  uint8_t* allocated_signal_stack = reinterpret_cast<uint8_t*>(ss.ss_sp);
-
-  // Tell the kernel to stop using it.
-  ss.ss_sp = nullptr;
-  ss.ss_flags = SS_DISABLE;
-  ss.ss_size = kHostAltSigStackSize;  // Avoid ENOMEM failure with Mac OS' buggy libc.
-  SigAltStack(&ss, nullptr);
-
-  // Free it.
-  delete[] allocated_signal_stack;
+  // A Thread whose native creation failed never installed a signal stack.
+  if (signal_stack_owner != this) return;
+  if (!owned_signal_stack.TearDown()) {
+    PLOG(FATAL) << "alternate signal stack teardown failed";
+  }
+  signal_stack_owner = nullptr;
 }
 
 }  // namespace art

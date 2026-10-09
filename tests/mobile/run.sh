@@ -12,3 +12,5 @@ g++ -std=c++17 -DHAVE_SYS_UIO_H \
 	"$repo/tests/mobile/test-looper.cpp" -L "$prefix/lib" -L /usr/lib/art \
 	-lutils -lcutils -llog -o "$out/test-looper"
 timeout 30 "$out/test-looper"
+g++ -std=c++17 -I "$repo" "$repo/tests/mobile/test-signal-stack.cpp" -o "$out/test-signal-stack"
+timeout 30 "$out/test-signal-stack"
