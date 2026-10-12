@@ -1781,18 +1781,34 @@ base::expected<std::monostate, IOError> Theme::SetTo(const Theme& source) {
     return {};
   }
 
+  auto op_src = source.asset_manager_->StartOperation();
+  auto op_dst = asset_manager_->StartOperation();
+
   type_spec_flags_ = source.type_spec_flags_;
 
-  if (asset_manager_ == source.asset_manager_) {
+  // Identical ordered ApkAssets have identical cookies and assigned package IDs,
+  // even when their AssetManagers select different configurations. Copy the
+  // existing values verbatim: reselecting styles belongs to Theme::Rebase.
+  // This also preserves cross-package references (e.g. an app attribute whose
+  // value refers to a framework drawable), which the remapping path can drop.
+  bool same_assets = asset_manager_ == source.asset_manager_;
+  if (!same_assets && asset_manager_->GetApkAssetsCount() ==
+                          source.asset_manager_->GetApkAssetsCount()) {
+    same_assets = true;
+    for (size_t i = 0; i < asset_manager_->GetApkAssetsCount(); ++i) {
+      if (asset_manager_->GetApkAssets(i) != source.asset_manager_->GetApkAssets(i)) {
+        same_assets = false;
+        break;
+      }
+    }
+  }
+  if (same_assets) {
     keys_ = source.keys_;
     entries_ = source.entries_;
   } else {
     std::unordered_map<ApkAssetsCookie, ApkAssetsCookie> src_to_dest_asset_cookies;
     using SourceToDestinationRuntimePackageMap = std::unordered_map<int, int>;
     std::unordered_map<ApkAssetsCookie, SourceToDestinationRuntimePackageMap> src_asset_cookie_id_map;
-
-    auto op_src = source.asset_manager_->StartOperation();
-    auto op_dst = asset_manager_->StartOperation();
 
     for (size_t i = 0; i < source.asset_manager_->GetApkAssetsCount(); i++) {
       const auto& src_asset = source.asset_manager_->GetApkAssets(i);
