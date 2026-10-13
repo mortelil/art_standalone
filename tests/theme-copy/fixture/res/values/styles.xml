@@ -1,0 +1,9 @@
+<resources>
+    <attr name="crossPackage" format="color|reference"/>
+    <attr name="localValue" format="integer"/>
+    <style name="Probe">
+        <item name="android:colorAccent">#ff123456</item>
+        <item name="crossPackage">?android:attr/colorAccent</item>
+        <item name="localValue">7</item>
+    </style>
+</resources>

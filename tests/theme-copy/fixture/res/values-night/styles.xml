@@ -1,0 +1,7 @@
+<resources>
+    <style name="Probe">
+        <item name="android:colorAccent">#ffabcdef</item>
+        <item name="crossPackage">?android:attr/colorAccent</item>
+        <item name="localValue">9</item>
+    </style>
+</resources>
