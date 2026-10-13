@@ -349,6 +349,37 @@ static ssize_t fake_writev(int fd, const struct iovec *iov, int iovcnt) {
 #define FORMAT_COLOR_GRAY       "\033[37m"
 #define FORMAT_COLOR_LIGHT_GRAY "\033[38;5;252m"
 
+/*
+ * Capture the descriptor that log records must be written to as early as
+ * possible: when this library is loaded, and before any application code can
+ * redirect the process's stdout/stderr.  A real device delivers log output to
+ * logd, never through the application's own descriptors, so an application
+ * that replaces fd 2 and then re-emits what it reads via __android_log_print()
+ * (VLC's std_logger does exactly that) must not be able to route the logger's
+ * own output back into its pipe: that turns logging into an unbounded feedback
+ * loop and stalls every thread that logs as soon as the pipe is full.
+ */
+static int logOutputFd = -1;
+
+__attribute__((constructor))
+static void initializeLogOutputFd(void)
+{
+    /* Never inherit this private descriptor across exec. If duplication fails,
+     * do not retry after application code may have redirected stderr. */
+    logOutputFd = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
+}
+
+__attribute__((destructor))
+static void closeLogOutputFd(void)
+{
+    if (logOutputFd >= 0) close(logOutputFd);
+}
+
+static int getLogOutputFd(void)
+{
+    return logOutputFd;
+}
+
 static bool should_colorize() {
     static bool should_colorize;
     static bool cached = false;
@@ -361,11 +392,14 @@ static bool should_colorize() {
         } else if (!strcmp(liblog_color, "never")) {
             should_colorize = false;
         } else {
-            fprintf(stderr, "liblog: invalid value for LIBLOG_COLOR (should be always, never, or undefined for auto)\n");
+            dprintf(getLogOutputFd(),
+                    "liblog: invalid value for LIBLOG_COLOR (should be always, never, or undefined for auto)\n");
             exit(1);
         }
     } else {
-        should_colorize = isatty(STDOUT_FILENO);
+        /* Colour must be decided on the descriptor the records actually go
+         * to (upstream checked stdout while writing to stderr). */
+        should_colorize = isatty(getLogOutputFd());
     }
 
     return should_colorize;
@@ -574,7 +608,7 @@ static void showLog(LogState *state,
      */
 
     for(;;) {
-        int cc = writev(fileno(stderr), vec, v-vec);
+        int cc = writev(getLogOutputFd(), vec, v-vec);
 
         if (cc == totalLen) break;
         
@@ -582,11 +616,11 @@ static void showLog(LogState *state,
             if(errno == EINTR) continue;
             
                 /* can't really log the failure; for now, throw out a stderr */
-            fprintf(stderr, "+++ LOG: write failed (errno=%d)\n", errno);
+            dprintf(getLogOutputFd(), "+++ LOG: write failed (errno=%d)\n", errno);
             break;
         } else {
                 /* shouldn't happen when writing to file or tty */
-            fprintf(stderr, "+++ LOG: write partial (%d of %d)\n", cc, totalLen);
+            dprintf(getLogOutputFd(), "+++ LOG: write partial (%d of %d)\n", cc, totalLen);
             break;
         }
     }
