@@ -1790,6 +1790,7 @@ base::expected<std::monostate, IOError> Theme::SetTo(const Theme& source) {
     std::unordered_map<ApkAssetsCookie, ApkAssetsCookie> src_to_dest_asset_cookies;
     using SourceToDestinationRuntimePackageMap = std::unordered_map<int, int>;
     std::unordered_map<ApkAssetsCookie, SourceToDestinationRuntimePackageMap> src_asset_cookie_id_map;
+    SourceToDestinationRuntimePackageMap referenced_package_map;
 
     auto op_src = source.asset_manager_->StartOperation();
     auto op_dst = asset_manager_->StartOperation();
@@ -1816,6 +1817,7 @@ base::expected<std::monostate, IOError> Theme::SetTo(const Theme& source) {
               loaded_package.get());
           const int dest_package_id = asset_manager_->GetAssignedPackageId(loaded_package.get());
           package_map[src_package_id] = dest_package_id;
+          referenced_package_map[src_package_id] = dest_package_id;
         }
 
         src_to_dest_asset_cookies.insert(std::make_pair(i, j));
@@ -1841,14 +1843,12 @@ base::expected<std::monostate, IOError> Theme::SetTo(const Theme& source) {
       uint32_t attribute_data = entry.value.data;
       if (is_reference) {
         // Determine the package id of the reference in the destination AssetManager.
-        auto value_package_map = src_asset_cookie_id_map.find(entry.cookie);
-        if (value_package_map == src_asset_cookie_id_map.end()) {
-          continue;
-        }
-
-        auto value_dest_package = value_package_map->second.find(
-            get_package_id(entry.value.data));
-        if (value_dest_package == value_package_map->second.end()) {
+        // The value may reference a different package than the APK containing
+        // this entry (e.g. an app style referencing ?android:attr/colorAccent).
+        // Only packages backed by shared assets are eligible, but look up the
+        // referenced package across all of them, not just the entry's cookie.
+        auto value_dest_package = referenced_package_map.find(get_package_id(entry.value.data));
+        if (value_dest_package == referenced_package_map.end()) {
           continue;
         }
 
