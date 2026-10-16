@@ -12,7 +12,7 @@ LOCAL_CFLAGS   = $(libandroidfw_defaults_CFLAGS)
 LOCAL_LDFLAGS  = $(libandroidfw_defaults_LDFLAGS)
 LOCAL_LDLIBS   =  \
         $(libandroidfw_defaults_LDLIBS) \
-        -lz
+        -lz -lpng
 LOCAL_SRC_FILES_ =  \
         $(libandroidfw_defaults_SRCS) \
         ApkAssets.cpp \
