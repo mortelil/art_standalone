@@ -44,7 +44,15 @@ static AsynchronousCloseMonitor* blockedThreadList = NULL;
  * The specific signal chosen here is arbitrary, but bionic needs to know so that SIGRTMIN
  * starts at a higher value.
  */
+#ifdef __BIONIC__
 static const int BLOCKED_THREAD_SIGNAL = __SIGRTMIN + 2;
+#else
+// Host libc owns its reserved signals. In particular, musl rejects sigaction(34),
+// although pthread_kill can still deliver it and terminate the process. Keep the
+// host's first RT signal for bionic_translation's libbacktrace mapping and +2 for
+// ART's timeout signal (runtime_common.cc).
+static const int BLOCKED_THREAD_SIGNAL = SIGRTMIN + 1;
+#endif
 
 static void blockedThreadSignalHandler(int /*signal*/) {
     // Do nothing. We only sent this signal for its side-effect of interrupting syscalls.
