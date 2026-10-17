@@ -130,7 +130,11 @@ public class WolfSSLCertManager {
                     cert = (X509Certificate) ks.getCertificate(name);
                 }
 
-                if (cert != null && cert.getBasicConstraints() >= 0) {
+                /* Load every trust-store entry as an anchor: a pinned
+                 * self-signed end-entity certificate has basicConstraints -1
+                 * and must still verify against itself, matching the platform
+                 * trust manager's treatment of store entries. */
+                if (cert != null) {
                     ret = CertManagerLoadCABuffer(cert.getEncoded(),
                             cert.getEncoded().length,
                             WolfSSL.SSL_FILETYPE_ASN1);
