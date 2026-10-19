@@ -13,3 +13,13 @@ fail. No network services, user certificates or accounts are used.
 This implements trust-store selection, not permissive verification. Native
 WolfSSL still verifies signatures/chains. The probe halts after assertions to
 avoid unrelated standalone runtime teardown; it does not verify VM shutdown.
+
+Cross-signed roots: when a peer-supplied CA has both the subject and public key
+of a configured anchor, validation terminates at that anchor instead of requiring
+its alternate issuer. The remaining chain still undergoes native verification.
+Tests include an absent alternate issuer, a redundant alternate path, different
+trusted keys with the same name, empty trust stores, expired and forged leaves.
+This is bounded anchor recognition, not a replacement for a full PKIX path builder.
+Reference: Conscrypt TrustManagerImpl.findTrustAnchorBySubjectAndPublicKey,
+platform/external/conscrypt commit de55e62f6c7ecd57d0a91f2b497885c3bdc661d3.
+No Conscrypt code copied; changes are AI-assisted.

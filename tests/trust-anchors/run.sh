@@ -6,7 +6,8 @@ repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 sh "$repo/tests/trust-anchors/fixtures.sh" "$out/fixtures"
-mkdir -p "$out/classes" "$out/probe"
+mkdir -p "$out/classes" "$out/probe" "$out/cache"
+export XDG_CACHE_HOME="$out/cache"
 find "$repo/external/wolfssljni/src/java" -name '*.java' ! -name WolfSSLJDK8Helper.java > "$out/sources"
 jdk=${JAVA_HOME:-/usr/lib/jvm/java-1.8-openjdk}
 "$jdk/bin/javac" -source 8 -target 8 -d "$out/classes" @"$out/sources"
