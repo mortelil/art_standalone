@@ -339,6 +339,35 @@ public class WolfSSLTrustX509 implements X509TrustManager {
          * assume cert chain starts with peer certificate (certs[0]). */
         sortedCerts = sortCertChainBySubjectIssuer(certs);
 
+        /* A peer may send a cross-signed copy of an already trusted root.
+         * Stop at that trust anchor instead of requiring its alternate issuer.
+         * Match both subject and key, never just the name. Certificates below
+         * the anchor still undergo native signature/path validation.
+         * Reference: Conscrypt TrustManagerImpl.findTrustAnchorBySubjectAndPublicKey,
+         * platform/external/conscrypt de55e62f6c7ecd57d0a91f2b497885c3bdc661d3.
+         * Original implementation here; no Conscrypt code copied.
+         */
+        try {
+            anchorSearch:
+            for (int i = 1; i < sortedCerts.length; i++) {
+                Enumeration<String> aliases = this.store.aliases();
+                while (aliases.hasMoreElements()) {
+                    Certificate entry = this.store.getCertificate(aliases.nextElement());
+                    if (!(entry instanceof X509Certificate)) continue;
+                    X509Certificate anchor = (X509Certificate) entry;
+                    if (anchor.getSubjectX500Principal().equals(sortedCerts[i].getSubjectX500Principal()) &&
+                        Arrays.equals(anchor.getPublicKey().getEncoded(), sortedCerts[i].getPublicKey().getEncoded())) {
+                        sortedCerts = Arrays.copyOf(sortedCerts, i);
+                        break anchorSearch;
+                    }
+                }
+            }
+        } catch (KeyStoreException e) {
+            cm.free();
+            throw new CertificateException("Unable to inspect trust anchors", e);
+        }
+
+
         /* Walk backwards down list of intermediate CA certs, verify each one
          * based on trusted certs we already have loaded in the CertManager,
          * then once verified load the intermediate into the CertManager

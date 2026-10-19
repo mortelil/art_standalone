@@ -36,9 +36,16 @@ public class TrustAnchors {
         verify(trust(null,provider),new X509Certificate[]{rsa},false,"empty trust store");
         verify(trust(ca,provider),new X509Certificate[]{leaf},true,"valid CA chain");
         verify(trust(rsa,provider),new X509Certificate[]{leaf,ca},false,"untrusted CA supplied by peer");
+        X509Certificate cross=cert(args[0]+"/cross.pem"), alternate=cert(args[0]+"/alternate.pem");
+        verify(trust(ca,provider),new X509Certificate[]{leaf,cross},true,"cross-signed trusted root, issuer absent");
+        verify(trust(ca,provider),new X509Certificate[]{leaf,cross,alternate},true,"redundant alternate path");
+        verify(trust(other,provider),new X509Certificate[]{leaf,cross},false,"same subject is not same trusted key");
+        verify(trust(null,provider),new X509Certificate[]{leaf,cross},false,"cross-sign does not establish trust");
+        verify(trust(ca,provider),new X509Certificate[]{cert(args[0]+"/expired.pem"),cross},false,"expired leaf below cross-signed root");
         byte[] damaged=leaf.getEncoded(); damaged[damaged.length-1]^=1;
         X509Certificate forged=(X509Certificate)CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(damaged));
         verify(trust(ca,provider),new X509Certificate[]{forged},false,"invalid signature");
+        verify(trust(ca,provider),new X509Certificate[]{forged,cross},false,"forged leaf below cross-signed root");
         if(trust(rsa,provider).getAcceptedIssuers().length!=1) throw new AssertionError("anchor not exposed");
         System.out.println("TRUST_ANCHORS_PASS checks="+(checks+1)); System.out.flush();
         Runtime.getRuntime().halt(0);
