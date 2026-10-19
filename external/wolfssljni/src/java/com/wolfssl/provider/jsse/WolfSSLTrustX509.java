@@ -202,7 +202,14 @@ public class WolfSSLTrustX509 implements X509TrustManager {
                     root = (X509Certificate) ks.getCertificate(name);
                 }
 
-                if (root != null && root.getBasicConstraints() >= 0) {
+                /* Every entry of the configured trust store is a trust anchor,
+                 * whether or not it carries basicConstraints CA:TRUE. A pinned
+                 * self-signed end-entity certificate (basicConstraints -1, e.g.
+                 * a KDE Connect device certificate) must be usable as its own
+                 * anchor, which is how the platform (Conscrypt) treats store
+                 * entries; filtering it out leaves the manager with no anchor
+                 * at all and wolfSSL then reports ASN_SELF_SIGNED_E (-275). */
+                if (root != null) {
                     if (root.getSubjectX500Principal().equals(issuer)) {
                         /* Found correct CN, add to possible roots list */
                         possibleCerts.add(root);
@@ -476,7 +483,12 @@ public class WolfSSLTrustX509 implements X509TrustManager {
                     cert = (X509Certificate) store.getCertificate(name);
                 }
 
-                if (cert != null && cert.getBasicConstraints() >= 0) {
+                /* Store entries are anchors even without CA:TRUE: dropping a
+                 * pinned self-signed end-entity certificate here yields an
+                 * empty anchor list, and WolfSSLContext.LoadTrustedRootCerts()
+                 * then loads nothing, so verification fails with
+                 * ASN_SELF_SIGNED_E (-275). */
+                if (cert != null) {
                     CAs.add(cert);
                 }
             }
